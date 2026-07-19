@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: telegram-bot-salary
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+
+telegram:
+  bot:
+    name: ${TELEGRAM_BOT_NAME}
+    token: ${TELEGRAM_BOT_TOKEN}
+
+app:
+  security:
+    master-password: ${BOT_SECRET_PASSWORD}
