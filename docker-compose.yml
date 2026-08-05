@@ -8,8 +8,6 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-your_secure_password}
       POSTGRES_DB: payroll_bot
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
