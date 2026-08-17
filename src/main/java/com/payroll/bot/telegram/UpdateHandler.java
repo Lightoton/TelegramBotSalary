@@ -372,7 +372,11 @@ public class UpdateHandler {
             return createMessage(chatId, "Нет записей за " + date);
         }
 
-        SendMessage msg = createMessage(chatId, "Транзакции за " + date + ":\nВыберите запись для редактирования:");
+        java.math.BigDecimal dailyTotal = txs.stream()
+                .map(com.payroll.bot.entity.TransactionRecord::getEarnedAmount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        SendMessage msg = createMessage(chatId, "Транзакции за " + date + ":\nЗаработано за день: " + dailyTotal + " €\nВыберите запись для редактирования:");
         org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup markup = new org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup();
         java.util.List<java.util.List<org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton>> rows = new java.util.ArrayList<>();
 
