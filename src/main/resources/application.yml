@@ -23,3 +23,4 @@ telegram:
 app:
   security:
     master-password: ${BOT_SECRET_PASSWORD}
+

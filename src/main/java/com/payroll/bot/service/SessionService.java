@@ -11,11 +11,18 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SessionService {
     private final BotSessionRepository sessionRepository;
+    private final com.payroll.bot.repository.BotUserRepository userRepository;
 
     @Transactional
     public BotSession getSession(Long chatId) {
         return sessionRepository.findById(chatId)
-                .orElseGet(() -> sessionRepository.save(new BotSession(chatId)));
+                .orElseGet(() -> {
+                    BotSession session = new BotSession(chatId);
+                    if (userRepository.existsById(chatId)) {
+                        session.setState(BotState.MAIN_MENU);
+                    }
+                    return sessionRepository.save(session);
+                });
     }
 
     @Transactional
