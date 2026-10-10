@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface MonthlyReportRepository extends JpaRepository<MonthlyReport, Long> {
     Optional<MonthlyReport> findByChatIdAndReportMonthAndReportYear(Long chatId, Integer month, Integer year);
+    
+    List<MonthlyReport> findAllByChatIdOrderByReportYearDescReportMonthDesc(Long chatId);
 }

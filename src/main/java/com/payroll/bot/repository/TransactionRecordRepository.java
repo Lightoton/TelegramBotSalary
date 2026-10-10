@@ -20,4 +20,6 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
 
     @Query("SELECT SUM(t.earnedAmount) FROM TransactionRecord t WHERE t.chatId = :chatId AND EXTRACT(MONTH FROM t.transactionDate) = :month AND EXTRACT(YEAR FROM t.transactionDate) = :year")
     Optional<java.math.BigDecimal> sumEarnedAmountByChatIdAndMonthAndYear(@Param("chatId") Long chatId, @Param("month") int month, @Param("year") int year);
+    
+    List<TransactionRecord> findAllByChatIdAndTransactionDateBetween(Long chatId, LocalDate startDate, LocalDate endDate);
 }
