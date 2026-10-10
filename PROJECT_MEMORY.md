@@ -18,7 +18,7 @@
     *   Сессии хранятся в PostgreSQL таблице `bot_session` (`BotSessionRepository`).
 
 ## 3. Важные технические нюансы и костыли
-*   **Окружение пользователя:** Windows. Путь: `C:\Users\light\Desktop\TelegramBotSalary`.
+*   **Окружение пользователя:** Windows. Запуск через Docker Desktop.
 *   **Безопасность БД:** Порт `5432` спрятан внутри Docker.
 *   **Парсинг чисел:** Замена запятой на точку `text.replace(",", ".")`.
 
