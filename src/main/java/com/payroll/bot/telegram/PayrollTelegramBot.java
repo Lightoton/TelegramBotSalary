@@ -52,7 +52,7 @@ public class PayrollTelegramBot extends TelegramLongPollingBot {
                     session.getRecentMessageIds().add(update.getMessage().getMessageId());
                 }
                 
-                SendMessage response = updateHandler.handleUpdate(update);
+                SendMessage response = updateHandler.handleUpdate(update, session);
                 if (response != null) {
                     Message sentMessage = execute(response);
                     
