@@ -112,10 +112,9 @@ public class CalculationService {
     }
 
     public List<TransactionRecord> getTransactionsByMonth(Long chatId, int month, int year) {
-        return transactionRepository.findAllByChatId(chatId).stream()
-            .filter(t -> t.getTransactionDate().getMonthValue() == month 
-                    && t.getTransactionDate().getYear() == year)
-            .toList();
+        LocalDate startDate = LocalDate.of(year, month, 1);
+        LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+        return transactionRepository.findAllByChatIdAndTransactionDateBetween(chatId, startDate, endDate);
     }
     @Transactional
     public void closeMonth(Long chatId, int month, int year) {
@@ -129,8 +128,7 @@ public class CalculationService {
     }
 
     public boolean isMonthClosed(Long chatId, int month, int year) {
-        return monthlyReportRepository.findAll().stream()
-            .anyMatch(r -> r.getChatId().equals(chatId) && r.getReportMonth() == month && r.getReportYear() == year);
+        return monthlyReportRepository.findByChatIdAndReportMonthAndReportYear(chatId, month, year).isPresent();
     }
 
     public List<YearMonth> getUnclosedMonths(Long chatId) {
@@ -155,14 +153,6 @@ public class CalculationService {
     }
 
     public List<com.payroll.bot.entity.MonthlyReport> getArchivedMonths(Long chatId) {
-        return monthlyReportRepository.findAll().stream()
-            .filter(r -> r.getChatId().equals(chatId))
-            .sorted((a, b) -> {
-                if (!a.getReportYear().equals(b.getReportYear())) {
-                    return b.getReportYear().compareTo(a.getReportYear());
-                }
-                return b.getReportMonth().compareTo(a.getReportMonth());
-            })
-            .toList();
+        return monthlyReportRepository.findAllByChatIdOrderByReportYearDescReportMonthDesc(chatId);
     }
 }

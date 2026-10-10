@@ -1,25 +1,45 @@
 package com.payroll.bot.service;
 
+import com.payroll.bot.entity.BotSession;
+import com.payroll.bot.repository.BotSessionRepository;
 import com.payroll.bot.telegram.BotState;
-import com.payroll.bot.telegram.UserSession;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class SessionService {
-    private final Map<Long, UserSession> sessions = new ConcurrentHashMap<>();
+    private final BotSessionRepository sessionRepository;
+    private final com.payroll.bot.repository.BotUserRepository userRepository;
 
-    public UserSession getSession(Long chatId) {
-        return sessions.computeIfAbsent(chatId, k -> new UserSession());
+    @Transactional
+    public BotSession getSession(Long chatId) {
+        return sessionRepository.findById(chatId)
+                .orElseGet(() -> {
+                    BotSession session = new BotSession(chatId);
+                    if (userRepository.existsById(chatId)) {
+                        session.setState(BotState.MAIN_MENU);
+                    }
+                    return sessionRepository.save(session);
+                });
     }
 
+    @Transactional
+    public void saveSession(BotSession session) {
+        sessionRepository.save(session);
+    }
+
+    @Transactional
     public void setSessionState(Long chatId, BotState state) {
-        getSession(chatId).setState(state);
+        BotSession session = getSession(chatId);
+        session.setState(state);
+        sessionRepository.save(session);
     }
 
+    @Transactional
     public void clearSession(Long chatId) {
-        sessions.remove(chatId);
+        sessionRepository.deleteById(chatId);
     }
 }
+
