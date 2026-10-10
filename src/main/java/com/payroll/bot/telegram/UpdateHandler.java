@@ -39,7 +39,7 @@ public class UpdateHandler {
     private SendMessage handleMessage(Message message) {
         Long chatId = message.getChatId();
         String text = message.getText();
-        UserSession session = sessionService.getSession(chatId);
+        com.payroll.bot.entity.BotSession session = sessionService.getSession(chatId);
 
         if (message.getText() != null && (message.getText().equals("/start") || message.getText().equals("/menu"))) {
             if (userService.isUserRegistered(chatId)) {
@@ -288,7 +288,7 @@ public class UpdateHandler {
         }
     }
 
-    private SendMessage handleMainMenuCommands(Long chatId, String text, UserSession session) {
+    private SendMessage handleMainMenuCommands(Long chatId, String text, com.payroll.bot.entity.BotSession session) {
         if ("💰 Добавить доход".equals(text)) {
             session.setState(BotState.ADD_INCOME_DATE);
             SendMessage msg = createMessage(chatId, "Выберите дату дохода:");
@@ -411,7 +411,7 @@ public class UpdateHandler {
     private SendMessage handleCallback(CallbackQuery callbackQuery) {
         Long chatId = callbackQuery.getMessage().getChatId();
         String data = callbackQuery.getData();
-        UserSession session = sessionService.getSession(chatId);
+        com.payroll.bot.entity.BotSession session = sessionService.getSession(chatId);
 
         if ("CANCEL".equals(data)) {
             session.setState(BotState.MAIN_MENU);

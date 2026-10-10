@@ -45,7 +45,7 @@ public class PayrollTelegramBot extends TelegramLongPollingBot {
             }
 
             if (chatId != null) {
-                UserSession session = sessionService.getSession(chatId);
+                com.payroll.bot.entity.BotSession session = sessionService.getSession(chatId);
                 
                 // Track user's message
                 if (update.hasMessage()) {
@@ -78,6 +78,7 @@ public class PayrollTelegramBot extends TelegramLongPollingBot {
                         // ignore if already deleted or unavailable
                     }
                 }
+                sessionService.saveSession(session);
             }
         } catch (TelegramApiException e) {
             e.printStackTrace();
