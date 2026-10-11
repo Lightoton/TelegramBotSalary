@@ -11,7 +11,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Component
 public class IncomeHandler extends BaseHandler {
@@ -35,9 +34,13 @@ public class IncomeHandler extends BaseHandler {
 
         String data = getData(update);
         if (data != null) {
-            if (data.startsWith("DATE_") || data.startsWith("CAL_DAY_") || data.startsWith("CAL_PREV_") || data.startsWith("CAL_NEXT_")) return true;
-            if (data.startsWith("SRV_DYN_") || data.equals("SRV_HOURLY")) return true;
             if (data.startsWith("EDIT_TX_")) return true;
+            if (state == BotState.ADD_INCOME_DATE && (data.startsWith("DATE_") || data.startsWith("CAL_DAY_") || data.startsWith("CAL_PREV_") || data.startsWith("CAL_NEXT_"))) {
+                return true;
+            }
+            if (state == BotState.ADD_INCOME_SERVICE && (data.startsWith("SRV_DYN_") || data.equals("SRV_HOURLY"))) {
+                return true;
+            }
         }
 
         return false;
@@ -67,7 +70,7 @@ public class IncomeHandler extends BaseHandler {
             return createMessage(chatId, "Введите новую сумму для этой услуги (например 120):");
         }
 
-        if (session.getState() == BotState.ADD_INCOME_DATE || (data != null && (data.startsWith("CAL_DAY_") || data.startsWith("CAL_PREV_") || data.startsWith("CAL_NEXT_")))) {
+        if (session.getState() == BotState.ADD_INCOME_DATE && data != null) {
             if ("DATE_TODAY".equals(data)) {
                 session.setTempDate(LocalDate.now());
             } else if ("DATE_YESTERDAY".equals(data)) {
@@ -76,17 +79,17 @@ public class IncomeHandler extends BaseHandler {
                 SendMessage msg = createMessage(chatId, "Выберите день:");
                 msg.setReplyMarkup(KeyboardUtils.getCalendarKeyboard(LocalDate.now(), null));
                 return msg;
-            } else if (data != null && data.startsWith("CAL_DAY_")) {
+            } else if (data.startsWith("CAL_DAY_")) {
                 LocalDate date = LocalDate.parse(data.substring("CAL_DAY_".length()));
                 session.setTempDate(date);
-            } else if (data != null && (data.startsWith("CAL_PREV_") || data.startsWith("CAL_NEXT_"))) {
+            } else if (data.startsWith("CAL_PREV_") || data.startsWith("CAL_NEXT_")) {
                 LocalDate date = LocalDate.parse(data.substring(9));
                 SendMessage msg = createMessage(chatId, "Выберите день:");
                 msg.setReplyMarkup(KeyboardUtils.getCalendarKeyboard(date, null));
                 return msg;
             }
 
-            if (data != null && ("DATE_TODAY".equals(data) || "DATE_YESTERDAY".equals(data) || (data.startsWith("CAL_DAY_") && session.getState() == BotState.ADD_INCOME_DATE))) {
+            if ("DATE_TODAY".equals(data) || "DATE_YESTERDAY".equals(data) || data.startsWith("CAL_DAY_")) {
                 session.setState(BotState.ADD_INCOME_SERVICE);
                 SendMessage msg = createMessage(chatId, "Выбрана дата: " + session.getTempDate() + "\nВыберите услугу:");
                 msg.setReplyMarkup(KeyboardUtils.getDynamicServiceSelectionKeyboard(userService.getServiceCategories(chatId)));
@@ -97,7 +100,10 @@ public class IncomeHandler extends BaseHandler {
         if (session.getState() == BotState.ADD_INCOME_SERVICE && data != null) {
             if (data.startsWith("SRV_DYN_")) {
                 Long srvId = Long.parseLong(data.substring("SRV_DYN_".length()));
-                com.payroll.bot.entity.ServiceCategory svc = userService.getServiceCategories(chatId).stream().filter(s -> s.getId().equals(srvId)).findFirst().orElse(null);
+                com.payroll.bot.entity.ServiceCategory svc = userService.getServiceCategories(chatId).stream()
+                        .filter(s -> s.getId().equals(srvId))
+                        .findFirst()
+                        .orElse(null);
                 if (svc != null) {
                     session.setTempServiceType(svc.getName());
                     session.setState(BotState.ADD_INCOME_VALUE);
@@ -110,7 +116,10 @@ public class IncomeHandler extends BaseHandler {
             }
         }
 
-        if (session.getState() == BotState.ADD_INCOME_VALUE && text != null) {
+        if (session.getState() == BotState.ADD_INCOME_VALUE) {
+            if (text == null) {
+                return createMessage(chatId, "Пожалуйста, отправьте текстовое значение или сумму.");
+            }
             try {
                 TransactionRecord record = calculationService.addIncome(chatId, session.getTempDate(), session.getTempServiceType(), text);
                 session.setState(BotState.MAIN_MENU);
@@ -127,7 +136,10 @@ public class IncomeHandler extends BaseHandler {
             }
         }
 
-        if (session.getState() == BotState.EDIT_TRANSACTION_VALUE && text != null) {
+        if (session.getState() == BotState.EDIT_TRANSACTION_VALUE) {
+            if (text == null) {
+                return createMessage(chatId, "Пожалуйста, введите числовое значение суммы.");
+            }
             try {
                 calculationService.updateTransaction(session.getTempTransactionId(), text);
                 session.setState(BotState.MAIN_MENU);

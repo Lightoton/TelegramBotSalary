@@ -49,6 +49,10 @@ public class OnboardingHandler extends BaseHandler {
             return createMessage(chatId, messageService.getMessage("onboarding.hourly_rate"));
         }
 
+        if (text == null) {
+            return createMessage(chatId, "Пожалуйста, отправьте текстовое сообщение или число.");
+        }
+
         switch (session.getState()) {
             case AWAITING_PASSWORD:
                 if (masterPassword.equals(text)) {

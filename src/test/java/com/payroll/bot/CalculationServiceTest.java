@@ -102,7 +102,7 @@ public class CalculationServiceTest {
         com.payroll.bot.repository.MonthlyReportRepository reportRepo = mock(com.payroll.bot.repository.MonthlyReportRepository.class);
         org.springframework.test.util.ReflectionTestUtils.setField(calculationService, "monthlyReportRepository", reportRepo);
         
-        when(reportRepo.findAll()).thenReturn(java.util.Collections.emptyList());
+        when(reportRepo.findByChatIdAndReportMonthAndReportYear(123L, 7, 2026)).thenReturn(java.util.Optional.empty());
         when(transactionRepository.sumEarnedAmountByChatIdAndMonthAndYear(123L, 7, 2026)).thenReturn(java.util.Optional.of(new BigDecimal("1000.00")));
 
         calculationService.closeMonth(123L, 7, 2026);
@@ -126,7 +126,8 @@ public class CalculationServiceTest {
         report.setReportMonth(7);
         report.setReportYear(2026);
         
-        when(reportRepo.findAll()).thenReturn(java.util.List.of(report));
+        when(reportRepo.findByChatIdAndReportMonthAndReportYear(123L, 7, 2026)).thenReturn(java.util.Optional.of(report));
+        when(reportRepo.findByChatIdAndReportMonthAndReportYear(123L, 8, 2026)).thenReturn(java.util.Optional.empty());
 
         org.junit.jupiter.api.Assertions.assertTrue(calculationService.isMonthClosed(123L, 7, 2026));
         org.junit.jupiter.api.Assertions.assertFalse(calculationService.isMonthClosed(123L, 8, 2026));

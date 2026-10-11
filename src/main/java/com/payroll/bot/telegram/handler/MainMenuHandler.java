@@ -1,9 +1,9 @@
 package com.payroll.bot.telegram.handler;
 
 import com.payroll.bot.entity.BotSession;
+import com.payroll.bot.entity.MonthlyReport;
 import com.payroll.bot.entity.TransactionRecord;
 import com.payroll.bot.entity.UserSettings;
-import com.payroll.bot.service.BudgetService;
 import com.payroll.bot.service.CalculationService;
 import com.payroll.bot.service.UserService;
 import com.payroll.bot.telegram.BotState;
@@ -16,31 +16,42 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class MainMenuHandler extends BaseHandler {
 
     private final UserService userService;
     private final CalculationService calculationService;
-    private final BudgetService budgetService;
 
-    public MainMenuHandler(UserService userService, CalculationService calculationService, BudgetService budgetService) {
+    public MainMenuHandler(UserService userService, CalculationService calculationService) {
         this.userService = userService;
         this.calculationService = calculationService;
-        this.budgetService = budgetService;
     }
 
     @Override
     public boolean canHandle(BotSession session, Update update) {
         String text = getText(update);
-        if ("/start".equals(text) || "/menu".equals(text) || "📊 Статистика".equals(text) || "📄 Подробная статистика".equals(text) || "📚 Архив месяцев".equals(text) || "🔒 Закрыть месяц".equals(text)) return true;
+        if ("/start".equals(text) || "/menu".equals(text) || "📊 Статистика".equals(text) 
+                || "📄 Подробная статистика".equals(text) || "📚 Архив месяцев".equals(text) || "🔒 Закрыть месяц".equals(text)) {
+            return true;
+        }
         
         String data = getData(update);
-        if (data != null && (data.startsWith("CLOSE_MONTH_") || data.startsWith("ARCHIVE_") || data.equals("STAT_MENU") || data.startsWith("STAT_") || data.startsWith("HISTORY_DETAIL_") || (data.startsWith("CAL_DAY_") && session.getState() == BotState.MAIN_MENU) || (data.startsWith("CAL_PREV_") && session.getState() == BotState.MAIN_MENU) || (data.startsWith("CAL_NEXT_") && session.getState() == BotState.MAIN_MENU))) return true;
+        if (data != null) {
+            if ("CANCEL".equals(data) || "IGNORE".equals(data)) return true;
+            if (data.equals("STAT_MENU") || data.startsWith("STAT_")) return true;
+            if (data.startsWith("CLOSE_MONTH_SELECT_") || data.startsWith("CONFIRM_CLOSE_MONTH_") || "CANCEL_CLOSE_MONTH".equals(data)) return true;
+            if (data.startsWith("ARCHIVE_") || data.startsWith("HISTORY_") || data.startsWith("HISTORY_DETAIL_")) return true;
+            if (session.getState() == BotState.MAIN_MENU && (data.startsWith("CAL_DAY_") || data.startsWith("CAL_PREV_") || data.startsWith("CAL_NEXT_"))) {
+                return true;
+            }
+        }
         
         return false;
     }
@@ -50,6 +61,17 @@ public class MainMenuHandler extends BaseHandler {
         Long chatId = getChatId(update);
         String text = getText(update);
         String data = getData(update);
+
+        if ("CANCEL".equals(data)) {
+            session.setState(BotState.MAIN_MENU);
+            SendMessage msg = createMessage(chatId, "Отменено. Выберите действие:");
+            msg.setReplyMarkup(KeyboardUtils.getMainMenu());
+            return msg;
+        }
+
+        if ("IGNORE".equals(data)) {
+            return createMessage(chatId, "⚠️ Это действие недоступно.");
+        }
 
         if ("/start".equals(text) || "/menu".equals(text)) {
             session.setState(BotState.MAIN_MENU);
@@ -109,17 +131,17 @@ public class MainMenuHandler extends BaseHandler {
         }
 
         if ("📚 Архив месяцев".equals(text)) {
-            List<com.payroll.bot.entity.MonthlyReport> archived = calculationService.getArchivedMonths(chatId);
+            List<MonthlyReport> archived = calculationService.getArchivedMonths(chatId);
             if (archived.isEmpty()) return createMessage(chatId, "У вас пока нет закрытых месяцев.");
             SendMessage msg = createMessage(chatId, "Выберите закрытый месяц для просмотра отчета:");
             
             InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
             List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-            for (com.payroll.bot.entity.MonthlyReport rep : archived) {
+            for (MonthlyReport rep : archived) {
                 List<InlineKeyboardButton> row = new ArrayList<>();
                 InlineKeyboardButton btn = new InlineKeyboardButton();
-                btn.setText(rep.getReportMonth() + "/" + rep.getReportYear());
-                btn.setCallbackData("ARCHIVE_" + rep.getReportMonth() + "_" + rep.getReportYear());
+                btn.setText(rep.getReportMonth() + "/" + rep.getReportYear() + " — " + rep.getTotalEarned() + " €");
+                btn.setCallbackData("HISTORY_" + rep.getReportMonth() + "_" + rep.getReportYear());
                 row.add(btn);
                 rows.add(row);
             }
@@ -128,11 +150,26 @@ public class MainMenuHandler extends BaseHandler {
             return msg;
         }
 
-        if (data != null && data.startsWith("ARCHIVE_")) {
+        if (data != null && data.startsWith("HISTORY_DETAIL_")) {
+            String[] parts = data.split("_");
+            int m = Integer.parseInt(parts[2]);
+            int y = Integer.parseInt(parts[3]);
+            List<TransactionRecord> txs = calculationService.getTransactionsByMonth(chatId, m, y);
+            if (txs.isEmpty()) {
+                return createMessage(chatId, "Транзакции не найдены.");
+            }
+            StringBuilder sb = new StringBuilder("Детализация за " + m + "/" + y + ":\n");
+            for (TransactionRecord tx : txs) {
+                sb.append(tx.getTransactionDate()).append(" | ").append(tx.getServiceType()).append(" | ").append(tx.getEarnedAmount()).append(" €\n");
+            }
+            return createMessage(chatId, sb.toString());
+        }
+
+        if (data != null && (data.startsWith("ARCHIVE_") || data.startsWith("HISTORY_"))) {
             String[] parts = data.split("_");
             int m = Integer.parseInt(parts[1]);
             int y = Integer.parseInt(parts[2]);
-            com.payroll.bot.entity.MonthlyReport rep = calculationService.getArchivedMonths(chatId).stream()
+            MonthlyReport rep = calculationService.getArchivedMonths(chatId).stream()
                 .filter(r -> r.getReportMonth() == m && r.getReportYear() == y).findFirst().orElse(null);
             if (rep != null) {
                 SendMessage msg = createMessage(chatId, "Архив " + m + "/" + y + "\nВсего заработано: " + rep.getTotalEarned() + " €");
@@ -158,46 +195,79 @@ public class MainMenuHandler extends BaseHandler {
             return msg;
         }
 
-        if (data != null && data.startsWith("CLOSE_MONTH_")) {
-            String[] parts = data.substring("CLOSE_MONTH_".length()).split("_");
-            int m = Integer.parseInt(parts[0]);
-            int y = Integer.parseInt(parts[1]);
-            calculationService.closeMonth(chatId, m, y);
-            return createMessage(chatId, "✅ Месяц " + m + "/" + y + " успешно закрыт и перенесен в архив!");
+        if (data != null && data.startsWith("CLOSE_MONTH_SELECT_")) {
+            String[] parts = data.split("_");
+            int month = Integer.parseInt(parts[3]);
+            int year = Integer.parseInt(parts[4]);
+            String monthName = Month.of(month).getDisplayName(TextStyle.FULL_STANDALONE, new Locale("ru"));
+            String btnText = monthName.substring(0, 1).toUpperCase() + monthName.substring(1) + " " + year;
+            
+            SendMessage msg = createMessage(chatId, "Вы уверены, что хотите закрыть <b>" + btnText + "</b>?");
+            msg.setReplyMarkup(KeyboardUtils.getCloseMonthConfirmationKeyboard(month, year));
+            return msg;
+        }
+
+        if (data != null && data.startsWith("CONFIRM_CLOSE_MONTH_")) {
+            try {
+                String[] parts = data.split("_");
+                int month = Integer.parseInt(parts[3]);
+                int year = Integer.parseInt(parts[4]);
+                calculationService.closeMonth(chatId, month, year);
+                return createMessage(chatId, "✅ Месяц успешно закрыт и добавлен в архив!");
+            } catch (Exception e) {
+                return createMessage(chatId, "❌ " + e.getMessage());
+            }
+        }
+
+        if ("CANCEL_CLOSE_MONTH".equals(data)) {
+            session.setState(BotState.MAIN_MENU);
+            SendMessage msg = createMessage(chatId, "Действие отменено.");
+            msg.setReplyMarkup(KeyboardUtils.getMainMenu());
+            return msg;
         }
 
         return null;
     }
 
     private SendMessage showDetailedStatsForDate(Long chatId, LocalDate date) {
-        List<TransactionRecord> transactions = calculationService.getDailyTransactions(chatId, date);
-        if (transactions.isEmpty()) {
-            return createMessage(chatId, "За " + date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) + " транзакций не найдено.");
+        List<TransactionRecord> txs = calculationService.getDailyTransactions(chatId, date);
+        if (txs.isEmpty()) {
+            return createMessage(chatId, "Нет записей за " + date);
         }
-        
-        BigDecimal totalDay = transactions.stream().map(TransactionRecord::getEarnedAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("📋 <b>Транзакции за ").append(date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))).append("</b>\n");
-        sb.append("💰 Заработано за день: <b>").append(totalDay).append(" €</b>\n\n");
-        sb.append("Выберите запись для редактирования:");
+        BigDecimal dailyTotal = txs.stream()
+                .map(TransactionRecord::getEarnedAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        SendMessage msg = createMessage(chatId, sb.toString());
-        
+        SendMessage msg = createMessage(chatId, "Транзакции за " + date + ":\nЗаработано за день: " + dailyTotal + " €\nВыберите запись для редактирования:");
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-        for (TransactionRecord tx : transactions) {
+
+        int index = 1;
+        for (TransactionRecord tx : txs) {
             List<InlineKeyboardButton> row = new ArrayList<>();
             InlineKeyboardButton btn = new InlineKeyboardButton();
-            String timeStr = tx.getTransactionDate().format(DateTimeFormatter.ofPattern("HH:mm"));
-            btn.setText(timeStr + " | " + tx.getServiceType() + " | " + tx.getEarnedAmount() + "€");
-            btn.setCallbackData("EDIT_TX_" + tx.getId());
+            btn.setText(index + ". " + tx.getServiceType() + " | В: " + tx.getInputValue() + " | € %: " + tx.getEarnedAmount() + " 💶");
+            if (calculationService.isMonthClosed(chatId, date.getMonthValue(), date.getYear())) {
+                btn.setCallbackData("IGNORE");
+                btn.setText("🔒 " + btn.getText());
+            } else {
+                btn.setCallbackData("EDIT_TX_" + tx.getId());
+            }
             row.add(btn);
             rows.add(row);
+            index++;
         }
+
+        List<InlineKeyboardButton> cancelRow = new ArrayList<>();
+        InlineKeyboardButton cancelBtn = new InlineKeyboardButton();
+        cancelBtn.setText("Отмена");
+        cancelBtn.setCallbackData("CANCEL");
+        cancelRow.add(cancelBtn);
+        rows.add(cancelRow);
+
         markup.setKeyboard(rows);
         msg.setReplyMarkup(markup);
-        
         return msg;
     }
 }

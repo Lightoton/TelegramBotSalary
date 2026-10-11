@@ -22,7 +22,9 @@ public class SettingsHandler extends BaseHandler {
     @Override
     public boolean canHandle(BotSession session, Update update) {
         BotState state = session.getState();
-        if (state.name().startsWith("SETTINGS_")) return true;
+        if (state.name().startsWith("SETTINGS_") || state == BotState.EDIT_HOURLY_RATE || state == BotState.EDIT_TAX) {
+            return true;
+        }
         
         String text = getText(update);
         if ("⚙️ Настройки".equals(text)) return true;
@@ -30,6 +32,7 @@ public class SettingsHandler extends BaseHandler {
         String data = getData(update);
         if (data != null && (data.equals("MANAGE_SERVICES") || data.equals("ADD_SERVICE") 
             || data.equals("RENAME_SERVICE") || data.equals("UPDATE_SERVICE") || data.equals("DELETE_SERVICE")
+            || data.equals("SET_HOURLY") || data.equals("SET_TAX")
             || data.startsWith("REN_SRV_") || data.startsWith("UPD_SRV_") || data.startsWith("DEL_SRV_"))) {
             return true;
         }
@@ -50,6 +53,10 @@ public class SettingsHandler extends BaseHandler {
 
         if (data != null) {
             return handleCallback(chatId, data, session);
+        }
+
+        if (text == null) {
+            return createMessage(chatId, "Пожалуйста, отправьте текстовое значение или число.");
         }
 
         switch (session.getState()) {
@@ -79,6 +86,30 @@ public class SettingsHandler extends BaseHandler {
                 } catch (NumberFormatException e) {
                     return createMessage(chatId, "Пожалуйста, введите число.");
                 }
+            case EDIT_HOURLY_RATE:
+                try {
+                    BigDecimal rate = new BigDecimal(text.replace(",", "."));
+                    if (rate.compareTo(BigDecimal.ZERO) < 0) {
+                        return createMessage(chatId, "Значение не может быть отрицательным. Пожалуйста, введите корректное число:");
+                    }
+                    userService.updateHourlyRate(chatId, rate);
+                    session.setState(BotState.MAIN_MENU);
+                    return createMessage(chatId, "✅ Почасовая ставка успешно обновлена!");
+                } catch (NumberFormatException e) {
+                    return createMessage(chatId, "Пожалуйста, введите корректное число.");
+                }
+            case EDIT_TAX:
+                try {
+                    BigDecimal tax = new BigDecimal(text.replace(",", "."));
+                    if (tax.compareTo(BigDecimal.ZERO) < 0) {
+                        return createMessage(chatId, "Значение не может быть отрицательным. Пожалуйста, введите корректное число:");
+                    }
+                    userService.updateMonthlyTax(chatId, tax);
+                    session.setState(BotState.MAIN_MENU);
+                    return createMessage(chatId, "✅ Фиксированный налог успешно обновлен!");
+                } catch (NumberFormatException e) {
+                    return createMessage(chatId, "Пожалуйста, введите корректное число.");
+                }
             default:
                 return null;
         }
@@ -89,6 +120,14 @@ public class SettingsHandler extends BaseHandler {
             SendMessage msg = createMessage(chatId, "Управление услугами:");
             msg.setReplyMarkup(KeyboardUtils.getManageServicesKeyboard());
             return msg;
+        }
+        if ("SET_HOURLY".equals(data)) {
+            session.setState(BotState.EDIT_HOURLY_RATE);
+            return createMessage(chatId, "Введите новую почасовую ставку:");
+        }
+        if ("SET_TAX".equals(data)) {
+            session.setState(BotState.EDIT_TAX);
+            return createMessage(chatId, "Введите сумму фиксированного налога в месяц (например 150):");
         }
         if ("ADD_SERVICE".equals(data)) {
             session.setState(BotState.SETTINGS_ADD_SERVICE_NAME);

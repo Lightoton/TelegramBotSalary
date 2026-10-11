@@ -70,6 +70,10 @@ public class BudgetHandler extends BaseHandler {
             return null;
         }
 
+        if (text == null) {
+            return createMessage(chatId, "Пожалуйста, введите числовое значение.");
+        }
+
         try {
             BigDecimal value = new BigDecimal(text.replace(",", "."));
             if (value.compareTo(BigDecimal.ZERO) < 0) {
