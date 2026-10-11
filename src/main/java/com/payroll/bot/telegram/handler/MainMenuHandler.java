@@ -38,7 +38,7 @@ public class MainMenuHandler extends BaseHandler {
     public boolean canHandle(BotSession session, Update update) {
         String text = getText(update);
         if ("/start".equals(text) || "/menu".equals(text) || "📊 Статистика".equals(text) 
-                || "📄 Подробная статистика".equals(text) || "📚 Архив месяцев".equals(text) || "🔒 Закрыть месяц".equals(text)) {
+                || "📄 Подробная статистика".equals(text) || "📁 История".equals(text) || "📚 Архив месяцев".equals(text) || "🔒 Закрыть месяц".equals(text)) {
             return true;
         }
         
@@ -90,7 +90,18 @@ public class MainMenuHandler extends BaseHandler {
                              "💰 Всего заработано: <b>" + monthTotal + " €</b>\n" +
                              "📉 Налог: <b>" + currentTax + " €</b>\n" +
                              "💵 Чистая прибыль: <b>" + monthTotal.subtract(currentTax) + " €</b>";
-            return createMessage(chatId, statStr);
+            SendMessage msg = createMessage(chatId, statStr);
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            InlineKeyboardButton btn = new InlineKeyboardButton();
+            btn.setText("Подробная статистика");
+            btn.setCallbackData("STAT_MENU");
+            row.add(btn);
+            rows.add(row);
+            markup.setKeyboard(rows);
+            msg.setReplyMarkup(markup);
+            return msg;
         }
 
         if ("📄 Подробная статистика".equals(text) || (data != null && data.equals("STAT_MENU"))) {
@@ -130,10 +141,10 @@ public class MainMenuHandler extends BaseHandler {
              }
         }
 
-        if ("📚 Архив месяцев".equals(text)) {
+        if ("📁 История".equals(text) || "📚 Архив месяцев".equals(text)) {
             List<MonthlyReport> archived = calculationService.getArchivedMonths(chatId);
-            if (archived.isEmpty()) return createMessage(chatId, "У вас пока нет закрытых месяцев.");
-            SendMessage msg = createMessage(chatId, "Выберите закрытый месяц для просмотра отчета:");
+            if (archived.isEmpty()) return createMessage(chatId, "У вас пока нет закрытых месяцев в истории.");
+            SendMessage msg = createMessage(chatId, "Архив закрытых месяцев:\n(Нажмите на месяц, чтобы посмотреть детали)");
             
             InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
             List<List<InlineKeyboardButton>> rows = new ArrayList<>();

@@ -120,4 +120,39 @@ public class HandlerTest {
         assertTrue(resultMsg.getText().contains("Почасовая ставка успешно обновлена"));
         verify(userService, times(1)).updateHourlyRate(chatId, new BigDecimal("25.50"));
     }
+
+    @Test
+    void testHistoryButton_ShowsClosedMonths() {
+        Long chatId = 12345L;
+        BotSession session = new BotSession(chatId);
+
+        com.payroll.bot.entity.MonthlyReport report = new com.payroll.bot.entity.MonthlyReport(1L, chatId, 9, 2026, new BigDecimal("1500.00"), java.time.LocalDateTime.now());
+        when(calculationService.getArchivedMonths(chatId)).thenReturn(List.of(report));
+
+        Update update = createTextUpdate(chatId, "📁 История");
+        assertTrue(mainMenuHandler.canHandle(session, update));
+        SendMessage response = mainMenuHandler.handle(update, session);
+        assertNotNull(response);
+        assertTrue(response.getText().contains("Архив закрытых месяцев"));
+        assertNotNull(response.getReplyMarkup());
+    }
+
+    @Test
+    void testStatisticsButton_IncludesDetailedStatsInlineButton() {
+        Long chatId = 12345L;
+        BotSession session = new BotSession(chatId);
+
+        when(calculationService.getMonthlyTotal(eq(chatId), anyInt(), anyInt())).thenReturn(new BigDecimal("2500.00"));
+        UserSettings settings = new UserSettings();
+        settings.setMonthlyTax(new BigDecimal("200.00"));
+        when(userService.getUserSettings(chatId)).thenReturn(settings);
+
+        Update update = createTextUpdate(chatId, "📊 Статистика");
+        assertTrue(mainMenuHandler.canHandle(session, update));
+        SendMessage response = mainMenuHandler.handle(update, session);
+        assertNotNull(response);
+        assertTrue(response.getText().contains("Статистика за текущий месяц"));
+        assertNotNull(response.getReplyMarkup());
+        assertTrue(response.getReplyMarkup() instanceof org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup);
+    }
 }
